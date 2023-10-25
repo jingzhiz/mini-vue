@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <script src="./src/renderer.js"></script>
+  <script>
+    const vnode1 = {
+      tag: 'div',
+      props: {
+        onClick: () => console.log('hello')
+      },
+      children: 'click me!'
+    }
+
+    const Component = {
+      render() {
+        return {
+          tag: 'div',
+          props: {
+            onClick: () => console.log('hello')
+          },
+          children: 'click me again!'
+        }
+      }
+    }
+
+    const vnode2 = {
+      tag: Component
+    }
+
+    renderer(vnode2, document.querySelector('#app'))
+  </script>
+</body>
+
+</html>

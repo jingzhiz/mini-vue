@@ -11,32 +11,43 @@
   <div id="app"></div>
 
   <script src="./src/renderer.js"></script>
+  <script src="./src/reactivity.js"></script>
   <script>
-    const vnode1 = {
-      tag: 'div',
-      props: {
-        onClick: () => console.log('hello')
-      },
-      children: 'click me!'
-    }
+    const obj = reactive({
+      loading: true,
+      text: 'hello world',
+      foo: true,
+      bar: true,
+      count: 1
+    })
 
-    const Component = {
-      render() {
-        return {
-          tag: 'div',
-          props: {
-            onClick: () => console.log('hello')
-          },
-          children: 'click me again!'
-        }
-      }
-    }
+    // effect(() => {
+    //   console.log('execute')
+    //   document.body.innerText = obj.loading ? obj.text : 'loading~'
+    // })
+    // setTimeout(() => {
+    //   obj.loading = false
+    // }, 1000);
+    // setTimeout(() => {
+    //   // 当 obj.loading 为 false 时，不应该再触发副作用函数
+    //   obj.text = 'hello effect'
+    // }, 2000);
 
-    const vnode2 = {
-      tag: Component
-    }
+    // let temp1, temp2
+    // effect(function effectFn1() {
+    //   console.log('effectFn1 execute')
 
-    renderer(vnode2, document.querySelector('#app'))
+    //   effect(function effectFn2() {
+    //     console.log('effectFn2 execute')
+    //     temp2 = obj.bar
+    //   })
+
+    //   temp1 = obj.foo
+    // })
+    // obj.bar = false
+
+    
+    effect(() => obj.count++)
   </script>
 </body>
 
