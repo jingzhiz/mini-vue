@@ -1,0 +1,20 @@
+{
+  "name": "mini-vue-design",
+  "version": "1.0.0",
+  "description": "Vuejs设计与实现书籍中代码的实现",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jingzhiz/mini-vue-design.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jingzhiz/mini-vue-design/issues"
+  },
+  "homepage": "https://github.com/jingzhiz/mini-vue-design#readme"
+}
