@@ -11,43 +11,15 @@
   <div id="app"></div>
 
   <script src="./src/renderer.js"></script>
+  <script src="./src/effect.js"></script>
+  <script src="./src//computed.js"></script>
+  <script src="./src//watch.js"></script>
   <script src="./src/reactivity.js"></script>
   <script>
     const obj = reactive({
-      loading: true,
-      text: 'hello world',
-      foo: true,
-      bar: true,
-      count: 1
+      count: 1,
+      number: 1
     })
-
-    // effect(() => {
-    //   console.log('execute')
-    //   document.body.innerText = obj.loading ? obj.text : 'loading~'
-    // })
-    // setTimeout(() => {
-    //   obj.loading = false
-    // }, 1000);
-    // setTimeout(() => {
-    //   // 当 obj.loading 为 false 时，不应该再触发副作用函数
-    //   obj.text = 'hello effect'
-    // }, 2000);
-
-    // let temp1, temp2
-    // effect(function effectFn1() {
-    //   console.log('effectFn1 execute')
-
-    //   effect(function effectFn2() {
-    //     console.log('effectFn2 execute')
-    //     temp2 = obj.bar
-    //   })
-
-    //   temp1 = obj.foo
-    // })
-    // obj.bar = false
-
-    
-    effect(() => obj.count++)
   </script>
 </body>
 

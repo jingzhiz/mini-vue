@@ -1,56 +1,3 @@
-// 一个全局变量用来存储当前激活的副作用函数
-let activeEffect = null
-// effect 调用栈
-const effectStack = []
-// WeakMap 常用于存储 key 所引用的对象 value 存在时才有价值的信息
-// 当 value 被回收，key 也会被回收
-// 而 Map 中，value 被回收后，key 依旧作为 Map 对象的键名被引用，不会被回收
-const bucket = new WeakMap()
-
-// 
-function cleanup(effectFn) {
-  for (let i = 0; i < effectFn.deps.length; i++) {
-    const deps = effectFn.deps[i]
-    deps.delete(effectFn)
-  }
-  effectFn.deps.length = 0
-}
-
-function effect(fn) {
-  const effectFn = () => {
-    cleanup(effectFn)
-    // effectFn 执行时，将其记录
-    activeEffect = effectFn
-    effectStack.push(effectFn)
-    fn()
-    effectStack.pop()
-    activeEffect = effectStack.at(-1)
-  }
-
-  // deps 用来存储当前所有和该副作用函数相关联的依赖集合
-  effectFn.deps = []
-
-  // 执行副作用函数
-  effectFn()
-}
-
-function reactive(data) {
-  return new Proxy(data, {
-    get(target, key) {
-      // 追踪依赖
-      track(target, key)
-
-      return target[key]
-    },
-    set(target, key, value) {
-      target[key] = value
-
-      // 触发更新
-      trigger(target, key)
-    }
-  })
-}
-
 function track(target, key) {
   if (!activeEffect) return target[key]
 
@@ -91,11 +38,35 @@ function trigger(target, key) {
   const effectsToRun = new Set()
 
   effects && effects.forEach(effectFn => {
-    // 如果正在执行的副作用函数与所需要触发的副作用函数相同，就不触发执行，避免无线递归
+    // 如果正在执行的副作用函数与所需要触发的副作用函数相同，就不触发执行，避免无限递归
     if (effectFn !== activeEffect) {
       effectsToRun.add(effectFn)
     }
   })
 
-  effectsToRun.forEach(effectFn => effectFn())
+  effectsToRun.forEach(effectFn => {
+    // 如果副作用函数存在调度器，则将副作用函数交给调度器执行
+    if (effectFn.options.scheduler) {
+      effectFn.options.scheduler(effectFn)
+    } else {
+      effectFn()
+    }
+  })
+}
+
+function reactive(data) {
+  return new Proxy(data, {
+    get(target, key) {
+      // 追踪依赖
+      track(target, key)
+
+      return target[key]
+    },
+    set(target, key, value) {
+      target[key] = value
+
+      // 触发更新
+      trigger(target, key)
+    }
+  })
 }

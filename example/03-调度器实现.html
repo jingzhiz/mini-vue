@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <script src="./src/renderer.js"></script>
+  <script src="./src/effect.js"></script>
+  <script src="./src//computed.js"></script>
+  <script src="./src//watch.js"></script>
+  <script src="./src/reactivity.js"></script>
+  <script>
+    const obj = reactive({
+      count: 1,
+      number: 1
+    })
+
+    // effect(
+    //   () => {
+    //     console.log(obj.count)
+    //   }, {
+    //     scheduler(fn) {
+    //       setTimeout(() => {
+    //         fn()
+    //       }, 0);
+    //     }
+    //   }
+    // )
+    // obj.count++
+    // console.log('end')
+    
+    // effect(
+    //   () => {
+    //     console.log(obj.count)
+    //   }, {
+    //     scheduler(fn) {
+    //       jobQueue.add(fn)
+    //       flushJobs()
+    //     }
+    //   }
+    // )
+    // obj.count++
+    // obj.count++
+
+    // const ref = computed(() => {
+    //   console.log('execute')
+    //   return obj.count + obj.number
+    // })
+    // effect(() => {
+    //   console.log(ref.value)
+    //   console.log(ref.value)
+    //   obj.count++
+    //   console.log(ref.value)
+    // })
+    // obj.number++
+  
+    watch(
+      () => obj.count,
+      (newVal, oldVal) => {
+        console.log('value changed', newVal, oldVal)
+      },
+      {
+        immediate: true,
+        flush: 'post'
+      }
+    )
+    obj.count++
+    console.log('----')
+    obj.count++
+    console.log('----')
+  </script>
+</body>
+
+</html>
