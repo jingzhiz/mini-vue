@@ -51,7 +51,7 @@ function watch(source, cb, options = {}) {
 }
 
 function traverse(value, seen = new Set()) {
-  // 如果要被读取的值是原始值，获取已经被读取过了直接跳过
+  // 如果要被读取的值是原始值，或者已经被读取过了直接跳过
   if (typeof value !== 'object' || value === null || seen.has(value)) return
 
   // 将读取的数据添加到 Set 中记录
