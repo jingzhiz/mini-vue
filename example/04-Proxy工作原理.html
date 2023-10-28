@@ -17,32 +17,8 @@
   <script src="./src/reactivity/reactivity.js"></script>
   <script>
     const obj = reactive({
-      count: 1,
-      get getCount() {
-        return this.count
-      }
+      count: 1
     })
-
-    // console.log(obj.getCount)
-    // effect(() => {
-    //   console.log(obj.getCount)
-    // })
-    // obj.count++
-
-    // effect(() => {
-    //   'count' in obj
-    // })
-
-    // effect(() => {
-    //   for (const key in obj) {console.log(key, obj[key])}
-    // })
-    // obj.number = 1
-    // delete obj.number
-
-    effect(() => {
-      console.log(obj.count)
-    })
-    obj.count = 1
   </script>
 </body>
 
