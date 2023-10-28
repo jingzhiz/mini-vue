@@ -5,8 +5,41 @@ const TriggerType = {
   DELETE: 'DELETE'
 }
 
+// 重写数组方法
+const arrayInstrumentations = {}
+
+// 如果响应式了一个数组，数组内元素存在对象，则进行深度响应式处理
+// 会导致 console.log(arr.includes(obj)) false
+// 所以需要和原始值进行一次比较
+const extraHandleArrayQueryMethods = ['includes', 'indexOf', 'lastIndexOf']
+extraHandleArrayQueryMethods.forEach(method => {
+  const originMethod = Array.prototype[method]
+  arrayInstrumentations[method] = function(...args) {
+    let result = originMethod.apply(this, args)
+
+    if (result === false) {
+      result = originMethod.apply(this.raw, args)
+    }
+    return result
+  }
+})
+
+// 标记变量，代表是否进行追踪
+let shouldTrack = true
+const extraHandleArrayModifyMethods = ['push', 'pop', 'shift', 'unshift', 'splice']
+extraHandleArrayModifyMethods.forEach(method => {
+  const originMethod = Array.prototype[method]
+  arrayInstrumentations[method] = function(...args) {
+    // 在原始方法调用前禁止跟踪
+    shouldTrack = false
+    let result = originMethod.apply(this, args)
+    shouldTrack = true
+    return result
+  }
+})
+
 function track(target, key) {
-  if (!activeEffect) return target[key]
+  if (!activeEffect || !shouldTrack) return target[key]
 
   /* 
     数据结构
@@ -35,7 +68,7 @@ function track(target, key) {
   activeEffect.deps.push(deps)
 }
 
-function trigger(target, key, type) {
+function trigger(target, key, type, value) {
   depsMap = bucket.get(target)
   if (!depsMap) return
 
@@ -64,6 +97,32 @@ function trigger(target, key, type) {
     })
   }
 
+  if (type === TriggerType.ADD && Array.isArray(target)) {
+    // 取出和数组 length 相关的副作用函数
+    const lengthEffects = depsMap.get('length')
+    lengthEffects && lengthEffects.forEach(effectFn => {
+      // 如果正在执行的副作用函数与所需要触发的副作用函数相同，就不触发执行，避免无限递归
+      if (effectFn !== activeEffect) {
+        effectsToRun.add(effectFn)
+      }
+    })
+  }
+
+  // 如过目标是数组，并且修改了 length
+  if (Array.isArray(target) && key === 'length') {
+    depsMap.forEach((effects, key) => {
+      // 修改 length 时，只有索引值大于或等于 length 属性值的元素才需要触发响应
+      if (key >= value) {
+        effects.forEach(effectFn => {
+          // 如果正在执行的副作用函数与所需要触发的副作用函数相同，就不触发执行，避免无限递归
+          if (effectFn !== activeEffect) {
+            effectsToRun.add(effectFn)
+          }
+        })
+      }
+    })
+  }
+
   effectsToRun.forEach(effectFn => {
     // 如果副作用函数存在调度器，则将副作用函数交给调度器执行
     if (effectFn.options.scheduler) {
@@ -74,52 +133,84 @@ function trigger(target, key, type) {
   })
 }
 
-function reactive(data) {
+function createReactive(data, isShallow = false, isReadonly = false) {
   return new Proxy(data, {
     // 拦截获取操作
     get(target, key, receiver) {
-      console.log('get')
-      // 追踪依赖
-      track(target, key)
+      // 代理对象可以通过 raw 属性获取原始数据
+      if (key === 'raw') return target
 
-      return Reflect.get(target, key, receiver)
-    },
-    // 拦截 设置操作
-    set(target, key, value, receiver) {
-      console.log('set')
-      const oldVal = target[key]
-      // 判断是修改已有值还是新增值
-      const type = Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.UPDATE : TriggerType.ADD
-
-      const newVal = Reflect.set(target, key, value, receiver)
-
-      // 旧值和新值不相等时触发更新
-      if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
-        trigger(target, key, type) 
+      if (Array.isArray(target) && arrayInstrumentations.hasOwnProperty(key)) {
+        return Reflect.get(arrayInstrumentations, key, receiver)
+      }
+      
+      // 如果是只读或者 key 类型为 symbol 则不进行追踪
+      if (!isReadonly && typeof key !== 'symbol') {
+        track(target, key)
       }
 
-      return newVal
+      const result = Reflect.get(target, key, receiver)
+
+      // 如果是浅响应直接返回结果
+      if (isShallow) {
+        return result
+      }
+
+      // 遍历更深层次的对象
+      if (typeof result === 'object' && result !== null) {
+        return isReadonly ? readonly(result) : reactive(result)
+      }
+
+      return result
+    },
+    // 拦截 设置操作
+    set(target, key, newVal, receiver) {
+      if (isReadonly) {
+        console.warn(`Set operation on key "${key}" failed: target is readonly`)
+        return true
+      }
+
+      const oldVal = target[key]
+      // 判断是修改已有值还是新增值
+      const type = Array.isArray(target)
+        // 如果代理目标是数组，则检测索引值是否小于数组的长度
+        ? Number(key) < target.length ? TriggerType.UPDATE : TriggerType.ADD
+        // 如果代理目标是对象，则检测对象上是否存在该属性
+        : Object.prototype.hasOwnProperty.call(target, key) ? TriggerType.UPDATE : TriggerType.ADD
+
+      const result = Reflect.set(target, key, newVal, receiver)
+
+      // 相等则说明 receiver 是 target 的代理对象
+      if (target === receiver.raw) {
+        // 旧值和新值不相等时触发更新
+        if (oldVal !== newVal && (oldVal === oldVal || newVal === newVal)) {
+          trigger(target, key, type, newVal) 
+        }
+      }
+
+      return result
     },
     // 拦截 in 操作符
     has(target, key, receiver) {
-      console.log('has')
-
       track(target, key)
 
       return Reflect.get(target, key, receiver)
     },
     // 拦截 for in 遍历
     ownKeys(target) {
-      console.log('onwKeys')
       // ownKeys 中只能拿到 target
       // 因为 for in 遍历时，可以很明确知道当前获取到的 key
       // 因此需要构造一个唯一的 key, 在触发响应的时候触发这个 key 的更新
-      track(target, ITERATE_KEY)
+      track(target, Array.isArray(target) ? 'length' : ITERATE_KEY)
       return Reflect.ownKeys(target)
     },
     // 拦截 delete 操作
     deleteProperty(target, key) {
-      console.log('delete')
+      if (isReadonly) {
+        console.warn(`Delete operation on key "${key}" failed: target is readonly`)
+        return true
+      }
+
       const hasKey = Object.prototype.hasOwnProperty.call(target, key)
 
       const result = Reflect.deleteProperty(target, key)

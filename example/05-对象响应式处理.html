@@ -22,54 +22,49 @@
   <script src="./src/reactivity/api/readonly.js"></script>
 
   <script>
-    // const arr = reactive(['foo'])
-
-    // effect(() => {
-    //   console.log(arr.length)
-    // })
-    // arr[1] = 'bar'
-
-    // effect(() => {
-    //   console.log(arr[0])
-    // })
-    // arr.length = 0
-
-    // effect(() => {
-    //   console.log('execute')
-    //   for (const key in arr) {
-    //     console.log(key)
-    //   }
-    // })
-    // arr.length = 0
-    // arr[1] = 'bar'
-
-    // effect(() => {
-    //   console.log('execute')
-    //   for (const val of arr) {
-    //     console.log(val)
-    //   }
-    // })
-    // arr[1] = 'bar'
-    // arr.length = 0
-
-    // effect(() => {
-    //   console.log('execute')
-    //   console.log(arr.includes('foo'))
-    // })
-    // arr[0] = 1
-
     // const obj = {}
-    // const arr = reactive([obj])
-    // console.log(arr.includes(arr[0]))
-    // console.log(arr.includes(obj))
+    // const proto = { bar: 1}
+    // const child = reactive(obj)
+    // const parent = reactive(proto)
+    // Object.setPrototypeOf(child, parent)
+    // child.raw = obj
+    // parent.raw = proto
+    // effect(() => {
+    //   console.log(child.bar)
+    // })
+    // child.bar = 2
 
-    const arr = reactive([])
-    effect(() => {
-      arr.push(1)
+    // const obj = reactive({
+    //   foo: { bar: 1 }
+    // })
+    // effect(() => {
+    //   console.log(obj.foo.bar)
+    // })
+    // obj.foo.bar++
+
+    // const obj = shallowReactive({
+    //   foo: { bar: 1 }
+    // })
+    // effect(() => {
+    //   console.log(obj.foo.bar)
+    // })
+    // obj.foo.bar++
+
+    // const obj = shallowReadonly({
+    //   count: 1
+    // })
+    // effect(() => {
+    //   console.log(obj.count)
+    // })
+    // obj.count++
+
+    const obj = readonly({
+      foo: { bar: 1 }
     })
     effect(() => {
-      arr.push(1)
+      console.log(obj.foo.bar)
     })
+    obj.foo.bar++
   </script>
 </body>
 
