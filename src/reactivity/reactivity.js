@@ -1,4 +1,5 @@
 const ITERATE_KEY = Symbol()
+const MAP_KEY_ITERATE_KEY = Symbol()
 const TriggerType = {
   UPDATE: 'UPDATE',
   ADD: 'ADD',
@@ -37,6 +38,141 @@ extraHandleArrayModifyMethods.forEach(method => {
     return result
   }
 })
+
+// 用来将 forEach 中 callback 传递的参数变成响应式
+const wrapFn = (val) => typeof val === 'object' ? reactive(val) : val
+// 迭代器方法的实现是公用的
+function iterationMethod () {
+  const target = this.raw
+
+  const itr = target[Symbol.iterator]()
+
+  track(target, ITERATE_KEY)
+
+  // 返回自定义迭代器，对 value 做响应式处理
+  return {
+    next() {
+      const {value, done} = itr.next()
+      return {
+        value: value ? [wrapFn(value[0]), wrapFn(value[1])] : value,
+        done
+      }
+    },
+    // 添加可迭代协议
+    [Symbol.iterator]() {
+      return this
+    }
+  }
+}
+function valuesOrKeysIterationMethod (type = 'value') {
+  return function() {
+    const target = this.raw
+
+    const itr = target[`${type}s`]()
+
+    if (type === 'value') {
+      track(target, ITERATE_KEY)
+    } else {
+      // 在迭代 keys() 时，只应关注和 key 相关的副作用函数
+      track(target, MAP_KEY_ITERATE_KEY)
+    }
+
+    // 返回自定义迭代器，对 value 做响应式处理
+    return {
+      next() {
+        const {value, done} = itr.next()
+        return {
+          value: wrapFn(value),
+          done
+        }
+      },
+      // 添加可迭代协议
+      [Symbol.iterator]() {
+        return this
+      }
+    }
+  }
+}
+// Set/Map 数据类型的一些方法重写
+const mutableInstrumentations = {
+  add(key) {
+    const target = this.raw
+
+    // 先判断是否存在这个值
+    const hasKey = target.has(key)
+
+    const result = target.add(key)
+
+    // 值不存在的情况下才触发响应
+    if (!hasKey) {
+      trigger(target, key, TriggerType.ADD)
+    }
+
+    return result
+  },
+  delete(key) {
+    const target = this.raw
+
+    // 先判断是否存在这个值
+    const hasKey = target.has(key)
+
+    const result = target.delete(key)
+
+    // 删除的是存在的值，才触发响应
+    if (hasKey) {
+      trigger(target, key, TriggerType.ADD)
+    }
+
+    return result
+  },
+  get(key) {
+    const target = this.raw
+
+    // 先判断是否存在这个值
+    const hasKey = target.has(key)
+
+    track(target, key)
+
+    // 如果存在则返回结果
+    if (hasKey) {
+      const result = target.get(key)
+      return typeof result === 'object' ? reactive(result) : result
+    }
+  },
+  set(key, newVal) {
+    const target = this.raw
+
+    // 先判断是否存在这个值
+    const hasKey = target.has(key)
+
+    const oldVal = target[key]
+
+    // 使用原始数据，避免响应式数据设置到原始数据上进行数据污染
+    const rawVal = newVal.raw || newVal
+    target.set(key, rawVal)
+
+    // 如果存在则返回结果
+    if (!hasKey) {
+      trigger(target, key, TriggerType.ADD)
+    } else if (oldVal !== newVal || (oldVal === oldVal && newVal === newVal)) {
+      trigger(target, key, TriggerType.UPDATE)
+    }
+  },
+  forEach(callback, thisArg) {
+    const target = this.raw
+    
+    // 通过 ITERATE_KEY 建立依赖收集的关系
+    track(target, ITERATE_KEY)
+
+    target.forEach((v, k) => {
+      callback.call(thisArg, wrapFn(v), wrapFn(k), this)
+    })
+  },
+  [Symbol.iterator]: iterationMethod,
+  entries: iterationMethod,
+  values: valuesOrKeysIterationMethod('value'),
+  keys: valuesOrKeysIterationMethod('key')
+}
 
 function track(target, key) {
   if (!activeEffect || !shouldTrack) return target[key]
@@ -86,9 +222,31 @@ function trigger(target, key, type, value) {
   })
 
   // 增加/删除属性都会导致 key 数量的变化，影响 for in 循环次数
-  if (type === TriggerType.ADD || type === TriggerType.DELETE) {
+  if (
+    type === TriggerType.ADD ||
+    type === TriggerType.DELETE ||
+    (
+      // 如果是执行修改操作，但数据类型是 Map 也要获取 ITERATE_KEY 相关副作用函数并进行执行
+      type === TriggerType.UPDATE &&
+      getType(target) === 'Map'
+    )
+  ) {
     // 获取和 ITERATE_KEY 相关联的副作用函数
     const iterateEffects = depsMap.get(ITERATE_KEY)
+    iterateEffects && iterateEffects.forEach(effectFn => {
+      // 如果正在执行的副作用函数与所需要触发的副作用函数相同，就不触发执行，避免无限递归
+      if (effectFn !== activeEffect) {
+        effectsToRun.add(effectFn)
+      }
+    })
+  }
+
+  // 如果是 Map 类型
+  if (
+    (type === TriggerType.ADD || type === TriggerType.DELETE) && getType(target) === 'Map'
+  ) {
+    // 获取和 MAP_KEY_ITERATE_KEY 相关联的副作用函数
+    const iterateEffects = depsMap.get(MAP_KEY_ITERATE_KEY)
     iterateEffects && iterateEffects.forEach(effectFn => {
       // 如果正在执行的副作用函数与所需要触发的副作用函数相同，就不触发执行，避免无限递归
       if (effectFn !== activeEffect) {
@@ -134,6 +292,23 @@ function trigger(target, key, type, value) {
 }
 
 function createReactive(data, isShallow = false, isReadonly = false) {
+  // 代理 Set
+  if (
+    data instanceof Set ||
+    data instanceof Map
+  ) {
+    return new Proxy(data, {
+      get(target, key, receiver) {
+        if (key === 'raw') return target
+
+        if (key === 'size') {
+          track(target, ITERATE_KEY)
+          return Reflect.get(target, key, target)
+        }
+        return mutableInstrumentations[key]
+      }
+    })
+  }
   return new Proxy(data, {
     // 拦截获取操作
     get(target, key, receiver) {

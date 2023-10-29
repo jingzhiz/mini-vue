@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <!-- 工具函数 -->
+  <script src="./src//utils/index.js"></script>
+
+  <!-- 渲染器 -->
+  <script src="./src/renderer/renderer.js"></script>
+
+  <!-- 响应式系统 -->
+  <script src="./src/reactivity/effect.js"></script>
+  <script src="./src/reactivity/reactivity.js"></script>
+  <script src="./src/reactivity/api/computed.js"></script>
+  <script src="./src/reactivity/api/watch.js"></script>
+  <script src="./src/reactivity/api/reactive.js"></script>
+  <script src="./src/reactivity/api/readonly.js"></script>
+
+  <script>
+    // const set = reactive(new Set([1, 2, 3]))
+    // effect(() => {
+    //   console.log(set.size)
+    // })
+    // set.add(5)
+    // set.delete(1)
+
+    // const m = new Map()
+    // const p1 = reactive(m)
+    // const p2 = reactive(new Map())
+    // p1.set('p2', p2)
+    // effect(() => {
+    //   console.log('size', m.get('p2').size)
+    // })
+    // m.get('p2').set('foo', 1)
+
+    // const m = reactive(new Map([
+    //   [{key:1}, {value:1}]
+    // ]))
+    // effect(() => {
+    //   m.forEach((val, key, index) => {
+    //     console.log(key, val)
+    //   })
+    // })
+
+    // const m = reactive(new Map([['key', 1]]))
+    // effect(() => {
+    //   m.forEach((val, key) => {
+    //     console.log(val)
+    //   })
+    // })
+    // m.set('key', 2)
+
+    const m = reactive(new Map([
+      ['key1', 1],
+      ['key2', 2]
+    ]))
+    effect(() => {
+      // for(const [key, val] of m) {
+      //   console.log(key, val)
+      // }
+      // for(const [key, val] of m.entries()) {
+      //   console.log(key, val)
+      // }
+      // for(const val of m.values()) {
+      //   console.log(val)
+      // }
+      for(const key of m.keys()) {
+        console.log(key)
+      }
+    })
+    // m.set('key3', 3)
+    m.set('key2', 3)
+  </script>
+</body>
+
+</html>

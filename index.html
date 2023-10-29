@@ -10,6 +10,9 @@
 <body>
   <div id="app"></div>
 
+  <!-- 工具函数 -->
+  <script src="./src//utils/index.js"></script>
+
   <!-- 渲染器 -->
   <script src="./src/renderer/renderer.js"></script>
 
@@ -22,54 +25,7 @@
   <script src="./src/reactivity/api/readonly.js"></script>
 
   <script>
-    // const arr = reactive(['foo'])
-
-    // effect(() => {
-    //   console.log(arr.length)
-    // })
-    // arr[1] = 'bar'
-
-    // effect(() => {
-    //   console.log(arr[0])
-    // })
-    // arr.length = 0
-
-    // effect(() => {
-    //   console.log('execute')
-    //   for (const key in arr) {
-    //     console.log(key)
-    //   }
-    // })
-    // arr.length = 0
-    // arr[1] = 'bar'
-
-    // effect(() => {
-    //   console.log('execute')
-    //   for (const val of arr) {
-    //     console.log(val)
-    //   }
-    // })
-    // arr[1] = 'bar'
-    // arr.length = 0
-
-    // effect(() => {
-    //   console.log('execute')
-    //   console.log(arr.includes('foo'))
-    // })
-    // arr[0] = 1
-
-    // const obj = {}
-    // const arr = reactive([obj])
-    // console.log(arr.includes(arr[0]))
-    // console.log(arr.includes(obj))
-
-    const arr = reactive([])
-    effect(() => {
-      arr.push(1)
-    })
-    effect(() => {
-      arr.push(1)
-    })
+    
   </script>
 </body>
 
