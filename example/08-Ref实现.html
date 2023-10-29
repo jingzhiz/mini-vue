@@ -26,7 +26,23 @@
   <script src="./src/reactivity/api/ref.js"></script>
 
   <script>
-    
+    // const number = ref(1)
+    // effect(() => {
+    //   console.log(number.value)
+    // })
+    // number.value = 100
+
+    const obj = reactive({foo:1,bar:2})
+    const newObj1 = {
+      foo: toRef(obj, 'foo'),
+      bar: toRef(obj, 'bar')
+    }
+    const newObj2 = {...toRefs(obj)}
+    effect(() => {
+      console.log(newObj1.foo.value)
+      console.log(newObj2.foo.value)
+    })
+    obj.foo = 100
   </script>
 </body>
 
