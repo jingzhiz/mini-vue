@@ -26,7 +26,35 @@
   <script src="./src/reactivity/api/ref.js"></script>
 
   <script>
-    
+    const count = ref(0)
+
+    const vnode = reactive({
+      type: 'h1',
+      props: {
+        class: ['foo', 'bar'],
+        style: {
+          color: 'red',
+          fontSize: '100px'
+        },
+        onClick: [
+          () => {
+            count.value++
+          }
+        ]
+      },
+      children: [
+        {
+          type: 'p',
+          children: `当前计数${count.value}`
+        }
+      ]
+    })
+
+    effect(() => {
+      console.log(count.value)
+      render(vnode, document.querySelector('#app'))
+    })
+    // render({type: 'input'}, document.querySelector('#app'))
   </script>
 </body>
 

@@ -16,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/jingzhiz/mini-vue-design/issues"
   },
-  "homepage": "https://github.com/jingzhiz/mini-vue-design#readme"
+  "homepage": "https://github.com/jingzhiz/mini-vue-design#readme",
+  "dependencies": {
+    "vue": "^3.3.7"
+  }
 }
