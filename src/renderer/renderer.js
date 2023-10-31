@@ -17,7 +17,7 @@ function createRenderer(options = {}) {
   } = options
 
   // 挂载普通标签元素
-  function mountElement(vnode, container) {
+  function mountElement(vnode, container, anchor) {
     const { type, props, children } = vnode
   
     // 使用 type 创建同名标签, 并让 vnode.el 指向真实 dom 元素
@@ -39,7 +39,7 @@ function createRenderer(options = {}) {
       children.forEach(child => patch(null, child, el))
     }
 
-    insert(el, container)
+    insert(el, container, anchor)
   }
 
   // 更新普通标签元素
@@ -76,8 +76,8 @@ function createRenderer(options = {}) {
     } else if (isArray(n2.children)) {
       // 如果是数组表示为一组子节点
       if (isArray(n1.children)) {
-        n1.children.forEach(child => unmount(child));
-        n2.children.forEach(child => patch(null, child, container))
+        // EasyDiffV1(n1, n2, container)
+        EasyDiffV2(n1, n2, container)
       } else {
         // n1.children 是文本节点，则清空文本然后遍历 n2.children 进行挂载
         setElementText(container, '')
@@ -114,7 +114,7 @@ function createRenderer(options = {}) {
     if (parent) parent.removeChild(vnode.el)
   }
 
-  function patch(n1, n2, container) {
+  function patch(n1, n2, container, anchor) {
     // 如果是不同的标签元素，则直接先卸载之前的元素
     if (n1 && n1.type !== n2.type) {
       unmount(n1)
@@ -127,7 +127,7 @@ function createRenderer(options = {}) {
     if (isString(type)) {
       if (!n1) {
         // 挂载
-        mountElement(n2, container)
+        mountElement(n2, container, anchor)
       } else {
         // 更新
         patchElement(n1, n2)
@@ -176,6 +176,85 @@ function createRenderer(options = {}) {
     }
 
     container._vnode = vnode
+  }
+
+  //简单 Diff 算法
+  function EasyDiffV1(n1, n2, container) {
+    const oldChildren = n1.children
+    const newChildren = n2.children
+    const oldLen = oldChildren.length
+    const newLen = newChildren.length
+    const commonLen = Math.min(oldLen, newLen)
+  
+    // 遍历 length 中较短的一方
+    for (let i = 0; i < commonLen; i++) {
+      patch(oldChildren[i], newChildren[i], container)
+    }
+  
+    if (newLen > oldLen) {
+      // 如果 newLen > oldLen 表示还要新增挂载元素
+      for (let i = commonLen; i < newLen; i++) {
+        patch(null, newChildren[i], container)
+      }
+    } else if (newLen < oldLen) {
+      // 如果 newLen 《 oldLen 表示还要卸载元素
+      for (let i = commonLen; i < oldLen; i++) {
+        unmount(oldChildren[i])
+      }
+    }
+  }
+  function EasyDiffV2(n1, n2, container) {
+    const oldChildren = n1.children
+    const newChildren = n2.children
+
+    // 用来存储寻找过程中遇到的最大索引值
+    let lastIndex = 0
+    for (let i = 0; i < newChildren.length; i++) {
+      let find = false
+      const newVnode = newChildren[i]
+      for(let j = 0; j < oldChildren.length; j++) {
+        const oldVnode = oldChildren[j]
+
+        // 如果找到两个相同 key 的节点，表示 vnode 可以复用
+        if (newVnode.key === oldVnode.key) {
+          find = true
+          patch(oldVnode, newVnode, container)
+          if (lastIndex > j) {
+            const prevNode = newChildren[i - 1]
+            if (prevNode) {
+              const anchor = prevNode.el.nextSibling
+              insert(newVnode.el, container, anchor)
+            }
+          } else {
+            lastIndex = j
+          }
+          break
+        }
+      }
+
+      // 如果没有发现则表示该 vnode 是新增的
+      if (!find) {
+        const prevNode = newChildren[i - 1]
+        let anchor = null
+        if (prevNode) {
+          // 如果有前一个节点，则插入至这个节点的下一个兄弟元素之前
+          anchor = prevNode.el.nextSibling
+        } else {
+          // 否则新节点是第一个子节点，插入到父容器的第一个元素前
+          anchor = container.firstChild
+        }
+        patch(null, newVnode, container, anchor)
+      }
+    }
+
+    // 在遍历一遍旧节点，看是否是有元素要删除
+    for (let i = 0; i < oldChildren.length; i++) {
+      const oldVnode = oldChildren[i]
+      const has = newChildren.some(vnode => vnode.key === oldVnode.key)
+      if (!has) {
+        unmount(oldVnode)
+      }
+    }
   }
 
   return { render }
