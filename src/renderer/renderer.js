@@ -77,7 +77,8 @@ function createRenderer(options = {}) {
       // 如果是数组表示为一组子节点
       if (isArray(n1.children)) {
         // EasyDiffV1(n1, n2, container)
-        EasyDiffV2(n1, n2, container)
+        // EasyDiffV2(n1, n2, container)
+        twoEndDiff(n1, n2, container)
       } else {
         // n1.children 是文本节点，则清空文本然后遍历 n2.children 进行挂载
         setElementText(container, '')
@@ -253,6 +254,98 @@ function createRenderer(options = {}) {
       const has = newChildren.some(vnode => vnode.key === oldVnode.key)
       if (!has) {
         unmount(oldVnode)
+      }
+    }
+  }
+  // 双端 Diff 算法
+  function twoEndDiff(n1, n2, container) {
+    const oldChildren = n1.children
+    const newChildren = n2.children
+
+    // 记录两端索引
+    let oldStartIndex = 0
+    let oldEndIndex = oldChildren.length - 1
+    let newStartIndex = 0
+    let newEndIndex = newChildren.length - 1
+
+    // 指向双端的 node 节点
+    let oldStartVnode = oldChildren[oldStartIndex]
+    let oldEndVnode = oldChildren[oldEndIndex]
+    let newStartVnode = newChildren[newStartIndex]
+    let newEndVnode = newChildren[newEndIndex]
+
+    while(oldStartIndex <= oldEndIndex && newStartIndex <= newEndIndex) {
+      // 如果头尾节点为 undefined 表示已经处理过了，直接跳至下一节点
+      if (!oldStartVnode) {
+        oldStartVnode = oldChildren[++oldStartIndex]
+      } else if (!oldEndVnode) {
+        oldEndVnode = oldChildren[--oldEndIndex]
+      } else if (oldStartVnode.key === newStartVnode.key) {
+        patch(oldStartVnode, newStartVnode, container)
+
+        // 新旧节点位置都是最后一个，不需要移动
+
+        // 移动索引更改节点位置
+        oldStartVnode = oldChildren[++oldStartIndex]
+        newStartVnode = newChildren[++newStartIndex]
+      } else if (oldEndVnode.key === newEndVnode.key) {
+        patch(oldEndVnode, newEndVnode, container)
+
+        // 新旧节点位置都是最后一个，不需要移动
+
+        // 移动索引更改节点位置
+        oldEndVnode = oldChildren[--oldEndIndex]
+        newEndVnode = newChildren[--newEndIndex]
+      } else if (oldStartVnode.key === newEndVnode.key) {
+        patch(oldStartVnode, newEndVnode, container)
+
+        // 直接将 oldStartVnode 节点移动到最后面
+        insert(oldStartVnode.el, container, oldEndVnode.el.nextSibling)
+
+        // 移动索引更改节点位置
+        oldStartVnode = oldChildren[++oldStartIndex]
+        newEndVnode = newChildren[--newEndIndex]
+      } else if (oldEndVnode.key === newStartVnode.key) {
+        patch(oldEndVnode, newStartVnode, container)
+  
+        // 将 oldEndVnode 移动到 oldStartVnode 之前即可
+        insert(oldEndVnode.el, container, oldStartVnode.el)
+  
+        // 移动索引更改节点位置
+        oldEndVnode = oldChildren[--oldEndIndex]
+        newStartVnode = newChildren[++newStartIndex]
+      } else {
+        // indexInOld 就是新节点的头部节点在旧节点的索引
+        const indexInOld = oldChildren.findIndex(vnode => vnode.key === newStartVnode.key)
+        // 如果大于 0 则相当于找到了可复用的节点
+        if (indexInOld > 0) {
+          const vnodeToMove = oldChildren[indexInOld]
+          patch(vnodeToMove, newStartVnode, container)
+
+          // 将这个可复用的节点插入到最前面
+          insert(vnodeToMove.el, container, oldStartVnode.el)
+
+          // 设置为 undefined 表示已经处理过了，indexInOld 位置的节点已经移动到别的位置了
+          oldChildren[indexInOld] = void 0
+        } else {
+          // 说明 newStartVnode 是全新的节点，直接挂载至头部
+          patch(null, newStartVnode, container, oldStartVnode.el)
+        }
+        newStartVnode = newChildren[++newStartIndex]
+      }
+    }
+
+    // 循环结束后检查索引值
+    if (oldEndIndex < oldStartIndex && newStartIndex <= newEndIndex) {
+      // 如果满足了条件，表示还有新节点需要挂载
+      for (let i = newStartIndex; i <= newEndIndex; i++) {
+        const anchor = newChildren[newEndIndex + 1] ? newChildren[newEndIndex + 1].el : null
+        patch(null, newChildren[i], container, anchor)
+      }
+    } else if (newEndIndex < newStartIndex && oldStartIndex <= oldEndIndex) {
+      // 满足此条件表示还有旧节点需要移除
+      for (let i = oldStartIndex; i <= oldEndIndex; i++) {
+        oldChildren[i] && unmount(oldChildren[i])
       }
     }
   }
