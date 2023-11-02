@@ -19,13 +19,13 @@ function createRenderer(options = {}) {
   // 挂载普通标签元素
   function mountElement(vnode, container, anchor) {
     const { type, props, children } = vnode
-  
+
     // 使用 type 创建同名标签, 并让 vnode.el 指向真实 dom 元素
     const el = vnode.el = createElement(type)
-  
+
     // 遍历 props, 将属性或事件添加至 DOM 元素上
     if (vnode.props) {
-      for(const key in props) {
+      for (const key in props) {
         patchProps(el, key, null, props[key])
       }
     }
@@ -50,12 +50,16 @@ function createRenderer(options = {}) {
 
     // 新旧 props 相互比较进行更新
     for (const key in newProps) {
-      if (newProps[key] !== oldProps[key]) {
+      if (!oldProps) {
+        patchProps(el, key, null, newProps[key])
+      } else if (newProps[key] !== oldProps[key]) {
         patchProps(el, key, oldProps[key], newProps[key])
       }
     }
     for (const key in oldProps) {
-      if (!(key in newProps)) {
+      if (!newProps) {
+        patchProps(el, key, oldProps[key], null)
+      } else if (!(key in newProps)) {
         patchProps(el, key, oldProps[key], null)
       }
     }
@@ -78,7 +82,8 @@ function createRenderer(options = {}) {
       if (isArray(n1.children)) {
         // EasyDiffV1(n1, n2, container)
         // EasyDiffV2(n1, n2, container)
-        twoEndDiff(n1, n2, container)
+        // twoEndDiff(n1, n2, container)
+        quickDiff(n1, n2, container)
       } else {
         // n1.children 是文本节点，则清空文本然后遍历 n2.children 进行挂载
         setElementText(container, '')
@@ -95,12 +100,12 @@ function createRenderer(options = {}) {
       }
     }
   }
-  
+
   // 挂载组件
   function mountComponent(vnode, container) {
     // 调用组件函数，获取组件要渲染的内容
     const subtree = vnode.type.render()
-  
+
     render(subtree, container)
   }
 
@@ -186,12 +191,12 @@ function createRenderer(options = {}) {
     const oldLen = oldChildren.length
     const newLen = newChildren.length
     const commonLen = Math.min(oldLen, newLen)
-  
+
     // 遍历 length 中较短的一方
     for (let i = 0; i < commonLen; i++) {
       patch(oldChildren[i], newChildren[i], container)
     }
-  
+
     if (newLen > oldLen) {
       // 如果 newLen > oldLen 表示还要新增挂载元素
       for (let i = commonLen; i < newLen; i++) {
@@ -213,7 +218,7 @@ function createRenderer(options = {}) {
     for (let i = 0; i < newChildren.length; i++) {
       let find = false
       const newVnode = newChildren[i]
-      for(let j = 0; j < oldChildren.length; j++) {
+      for (let j = 0; j < oldChildren.length; j++) {
         const oldVnode = oldChildren[j]
 
         // 如果找到两个相同 key 的节点，表示 vnode 可以复用
@@ -274,7 +279,7 @@ function createRenderer(options = {}) {
     let newStartVnode = newChildren[newStartIndex]
     let newEndVnode = newChildren[newEndIndex]
 
-    while(oldStartIndex <= oldEndIndex && newStartIndex <= newEndIndex) {
+    while (oldStartIndex <= oldEndIndex && newStartIndex <= newEndIndex) {
       // 如果头尾节点为 undefined 表示已经处理过了，直接跳至下一节点
       if (!oldStartVnode) {
         oldStartVnode = oldChildren[++oldStartIndex]
@@ -307,10 +312,10 @@ function createRenderer(options = {}) {
         newEndVnode = newChildren[--newEndIndex]
       } else if (oldEndVnode.key === newStartVnode.key) {
         patch(oldEndVnode, newStartVnode, container)
-  
+
         // 将 oldEndVnode 移动到 oldStartVnode 之前即可
         insert(oldEndVnode.el, container, oldStartVnode.el)
-  
+
         // 移动索引更改节点位置
         oldEndVnode = oldChildren[--oldEndIndex]
         newStartVnode = newChildren[++newStartIndex]
@@ -346,6 +351,161 @@ function createRenderer(options = {}) {
       // 满足此条件表示还有旧节点需要移除
       for (let i = oldStartIndex; i <= oldEndIndex; i++) {
         oldChildren[i] && unmount(oldChildren[i])
+      }
+    }
+  }
+  // 快速 Diff 算法
+  function quickDiff(n1, n2, container) {
+    const oldChildren = n1.children
+    const newChildren = n2.children
+
+    let j = 0
+
+    let oldVnode = oldChildren[j]
+    let newVnode = newChildren[j]
+
+    // 处理相同的前置节点
+    while (oldVnode.key === newVnode.key) {
+      patch(oldVnode, newVnode, container)
+      j++
+      oldVnode = oldChildren[j]
+      newVnode = newChildren[j]
+    }
+
+    let oldEnd = oldChildren.length - 1
+    let newEnd = newChildren.length - 1
+
+    oldVnode = oldChildren[oldEnd]
+    newVnode = newChildren[newEnd]
+
+    // 处理相同的后置节点
+    while (oldVnode.key === newVnode.key) {
+      patch(oldVnode, newVnode, container)
+      oldVnode = oldChildren[--oldEnd]
+      newVnode = newChildren[--newEnd]
+    }
+
+    // 处理相同前置后置节点中间部分
+    if (j > oldEnd && j <= newEnd) {
+      // 处于 j 和 newEnd 之间的节点都需要挂载
+      const anchorIndex = newEnd + 1
+      const anchor = anchorIndex < newChildren.length ? newChildren[anchorIndex].el : null
+      while (j <= newEnd) {
+        patch(null, newChildren[j++], container, anchor)
+      }
+    } else if (j > newEnd && j <= oldEnd) {
+      // 处于 j 和 oldEnd 之间的都需要卸载
+      while (j <= oldEnd) {
+        unmount(oldChildren[j++])
+      }
+    } else {
+      // 新的一组子节点中剩余未处理的数量
+      const count = newEnd - j + 1
+      const source = new Array(count).fill(-1)
+
+      const oldStart = newStart = j
+
+      let pos = 0
+      let moved = false
+      let patched = 0
+      const keyIndex = {}
+      for (let i = newStart; i <= newEnd; i++) {
+        keyIndex[newChildren[i].key] = i
+      }
+      for (let i = oldStart; i <= oldEnd; i++) {
+        const oldVnode = oldChildren[i]
+        if (patched < count) {
+          const k = keyIndex[oldVnode.key]
+          if (typeof k !== undefined) {
+            newVnode = newChildren[k]
+            patch(oldVnode, newVnode, container)
+            patched++
+            source[k - newStart] = i
+
+            if (k < pos) {
+              moved = true
+            } else {
+              pos = k
+            }
+          } else {
+            unmount(oldVnode)
+          }
+        } else {
+          unmount(oldVnode)
+        }
+      }
+
+      // 获取最长递增子序列
+      function getSequence(arr) {
+        const p = []
+        const result = [0]
+        let i, j, start, end, mid
+        const len = arr.length
+        for (i = 0; i < len; i++) {
+          const arrI = arr[i]
+          if (arrI !== 0) {
+            j = result[result.length - 1]
+            if (arr[j] < arrI) {
+              p[i] = j
+              result.push(i)
+              continue
+            }
+            start = 0
+            end = result.length - 1
+            while (start < end) {
+              mid = ((start + end) / 2) | 0
+              if (arr[result[mid]] < arrI) {
+                start = mid + 1
+              } else {
+                end = mid
+              }
+            }
+            if (arrI < arr[result[start]]) {
+              if (start > 0) {
+                p[i] = result[start - 1]
+              }
+              // 替换该值
+              result[start] = i
+            }
+          }
+        }
+        start = result.length
+        end = result[start - 1]
+        while (start-- > 0) {
+          result[start] = end
+          end = p[end];
+        }
+        return result
+      }
+
+      if (moved) {
+        const seq = getSequence(source)
+        // s 指向最长递增子序列最后一个元素
+        let s = seq.length - 1
+        for (let i = count - 1; i >= 0; i--) {
+          // 为 -1 表示为全新节点，应该将其挂载
+          if (source[i] === -1) {
+            const pos = i + newStart
+            const newVnode = newChildren[pos]
+            const nextPos = pos + 1
+            const anchor = nextPos < newChildren.length
+              ? newChildren[nextPos].el
+              : null
+            patch(null, newVnode, container, anchor)
+          } else if (i !== seq[s]) {
+            // 此时说明节点需要移动
+            const pos = i + newStart
+            const newVnode = newChildren[pos]
+            const nextPos = pos + 1
+            const anchor = nextPos < newChildren.length
+              ? newChildren[nextPos].el
+              : null
+            insert(newVnode.el, container, anchor)
+          } else {
+            // 此时 i === seq[s], 说明该位置节点不需要移动，直接指向下一个位置
+            s--
+          }
+        }
       }
     }
   }
