@@ -49,7 +49,8 @@ const p = Promise.resolve()
 // 表示当前是否正在刷新队列
 let isFlushing = false
 
-function flushJobs() {
+function flushJobs(fn) {
+  jobQueue.add(fn)
   // 如果当前正在执行刷新队列则返回
   if (isFlushing) return
   isFlushing = true

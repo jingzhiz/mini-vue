@@ -5,6 +5,7 @@ const isNumber = (value) => getType(value) === 'Number'
 const isBoolean = (value) => getType(value) === 'Boolean'
 const isArray = (value) => getType(value) === 'Array'
 const isObject = (value) => getType(value) === 'Object'
+const isFunction = (value) => getType(value) === 'Function'
 
 const shouldSetAsProps = (el, key, value) => {
   if (key === 'form' && el.tagName === 'INPUT') return false

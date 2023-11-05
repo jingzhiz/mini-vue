@@ -15,6 +15,7 @@
 
   <!-- 渲染器 -->
   <script src="./src/renderer/renderer.js"></script>
+  <script src="./src/renderer/lifecircle.js"></script>
 
   <!-- 响应式系统 -->
   <script src="./src/reactivity/effect.js"></script>
@@ -26,29 +27,94 @@
   <script src="./src/reactivity/api/ref.js"></script>
 
   <script>
-    const oldVnode = {
-      type: 'div',
-      children: [
-        { type: 'p', children: 'text 1', key: 1 },
-        { type: 'p', children: 'text 2', key: 2 },
-        { type: 'p', children: 'text 3', key: 3 },
-        { type: 'p', children: 'text 4', key: 4 },
-        { type: 'p', children: 'text 5', key: 5 }
-      ]
+    // const MyComponent = {
+    //   name: 'MyComponent',
+    //   props: {
+    //     title: String
+    //   },
+    //   data() {
+    //     return {
+    //       foo: 1
+    //     }
+    //   },
+    //   render() {
+    //     return {
+    //       type: 'div',
+    //       children: [
+    //         { type: 'h1', children: `当前的title: ${this.title}` },
+    //         { type: 'p', children: `Foo的值是: ${this.foo}` }
+    //       ]
+    //     }
+    //   }
+    // }
+    // const vnode = {
+    //   type: MyComponent,
+    //   props: {
+    //     title: 'hello world'
+    //   }
+    // }
+    // render(vnode, document.querySelector('#app'))
+
+    const MyComponent = {
+      name: 'MyComponent',
+      props: {
+        title: String
+      },
+      setup(props, context) {
+        console.log(props, context)
+        onBeforeMount(() => {
+          console.log('onBeforeMount')
+        })
+        onMounted(() => {
+          console.log('onMounted')
+          context.emit('mounted')
+        })
+        onBeforeUpdate(() => {
+          console.log('onBeforeUpdate')
+        })
+        onUpdated(() => {
+          console.log('onUpdated')
+        })
+
+        const count = ref(0)
+        const handleAdd = () => {
+          count.value++
+        }
+
+        return () => {
+          return {
+            type: 'div',
+            key: 1,
+            children: [
+              {
+                type: 'h2',
+                key: '1-1',
+                children: `当前计数${count.value}`
+              },
+              {
+                type: 'button',
+                key: '1-2',
+                props: {
+                  onClick: handleAdd
+                },
+                children: '点击+1'
+              }
+            ]
+          }
+        }
+      }
     }
-    const newVnode = {
-      type: 'div',
-      children: [
-        { type: 'p', children: 'text 4', key: 4 },
-        { type: 'p', children: 'text 1', key: 1 },
-        { type: 'p', children: 'text 3', key: 3 },
-        { type: 'p', children: 'text 5', key: 5 },
-        { type: 'p', children: 'text 2', key: 2 },
-      ]
+    const vnode = {
+      type: MyComponent,
+      key: 'c',
+      props: {
+        title: 'hello world',
+        onMounted() {
+          console.log('execute')
+        }
+      }
     }
-    // debugger
-    render(oldVnode, document.querySelector('#app'))
-    render(newVnode, document.querySelector('#app'))
+    render(vnode, document.querySelector('#app'))
   </script>
 </body>
 

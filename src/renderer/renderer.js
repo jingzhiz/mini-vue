@@ -68,6 +68,185 @@ function createRenderer(options = {}) {
     patchChildren(n1, n2, el)
   }
 
+  function resolveProps(options, propsData) {
+    const props = {}
+    const attrs = {}
+
+    // 遍历为组件传递的 props 属性
+    for (const key in propsData) {
+      // on 开头的都添加到 props 中
+      if (key in options || key.startsWith('on')) {
+        // 如果组件有定义则作为 props 传递
+        props[key] = propsData[key]
+      } else {
+        // 否则作为 attrs
+        attrs[key] = propsData[key]
+      }
+    }
+
+    return [props, attrs]
+  }
+
+  // 挂载组件
+  function mountComponent(vnode, container, anchor) {
+    const componentOptions = vnode.type
+    // 获取组件的渲染函数
+    let {
+      props: propsOption,
+      data,
+      render,
+      setup,
+      // 生命周期的注入
+      beforeCreate,
+      created,
+      beforeMount,
+      mounted,
+      beforeUpdate,
+      updated
+    } = componentOptions
+
+    beforeCreate && beforeCreate()
+
+    // 调用 data 函数获取原始数据，再通过 reactive 包装成响应式数据
+    const state = data ? reactive(data()) : null
+    const [props, attrs] = resolveProps(propsOption, vnode.props)
+    const slots = vnode.children || {}
+
+    // 定义组件实例
+    const instance = {
+      state,
+      props: shallowReactive(props),
+      isMounted: false,
+      subTree: null,
+      slots,
+      beforeMount: [],
+      mounted: [],
+      beforeUpdate: [],
+      updated: [],
+      beforeUnmount: [],
+      unmounted: []
+    }
+
+    function emit(event, ...payload) {
+      const eventName = `on${event[0].toUpperCase()}${event.slice(1)}`
+      const handler = instance.props[eventName]
+      if (handler) {
+        handler(...payload)
+      } else {
+        console.error(`Uncaught ReferenceError: The handler of event "${event}" is not defined`)
+      }
+    }
+
+    const setupContext = { attrs, emit, slots }
+
+    setCurrentInstance(instance)
+    const setupResult = setup(shallowReactive(props), setupContext)
+    setCurrentInstance(null)
+
+    let setupState = null
+    if (isFunction(setupResult)) {
+      if (render) {
+        console.warn('The return value of the setup function is the function, and the render function is ignored')
+      }
+      render = setupResult
+    } else {
+      setupState = setupResult
+    }
+
+    vnode.component = instance
+
+    // 创建渲染上下文，本质上是组件实例的代理
+    const renderContext = new Proxy(instance, {
+      get(t, k, r) {
+        const { state, props } = t
+        if (key === '$slots') {
+          return slots
+        } else if (state && k in state) {
+          return state[k]
+        } else if (k in props) {
+          return props[k]
+        } else if (setupState && k in setupState) {
+          return setupState[k]
+        } else {
+          console.error(`No such key: the key "${k}" does not exits`)
+        }
+      },
+      set(t, k, v, r) {
+        const { state, props } = t
+        if (state && k in state) {
+          state[k] = v
+        } else if (k in props) {
+          console.warn(`Attempting to mutate prop "${k}". Props are readonly`)
+        } else if (setupState && k in setupState) {
+          setupState[k] = v
+        } else {
+          console.error(`No such key: the key ${k} don't exits`)
+        }
+      }
+    })
+
+    // 组件 create 后就能访问 this
+    created && created.call(renderContext)
+
+    effect(() => {
+      // 调用组件函数，获取组件要渲染的内容，通过 call 方法改变 render 里 this 指向
+      const subTree = render.call(renderContext, renderContext)
+      // 判断组件是否已经挂载
+      if (!instance.isMounted) {
+        beforeMount && beforeMount.call(renderContext)
+        instance.beforeMount && instance.beforeMount.forEach(hook => hook.call(renderContext))
+        patch(null, subTree, container, anchor)
+        instance.isMounted = true
+        mounted && mounted.call(renderContext)
+        instance.mounted && instance.mounted.forEach(hook => hook.call(renderContext))
+      } else {
+        beforeUpdate && beforeUpdate.call(renderContext)
+        instance.beforeUpdate && instance.beforeUpdate.forEach(hook => hook.call(renderContext))
+        patch(instance.subTree, subTree, container, anchor)
+        updated && updated.call(renderContext)
+        instance.updated && instance.updated.forEach(hook => hook.call(renderContext))
+      }
+      // 更新组件树实例的子树
+      instance.subTree = subTree
+    }, {
+      scheduler: flushJobs
+    })
+  }
+
+  function hasPropsChanged(prevProps, nextProps) {
+    const prevKeys = Object.keys(prevProps)
+    const nextKeys = Object.keys(nextProps)
+
+    // key 数量变化了则直接返回 true
+    if (prevKeys.length !== nextKeys.length) return true
+
+    for (let i = 0; i < nextKeys.length; i++) {
+      const key = nextKeys[i]
+      // 如果有一个值不相等了返回 true
+      if (nextProps[key] !== prevProps[key]) return true
+    }
+
+    return false
+  }
+
+  function patchComponent(n1, n2, anchor) {
+    // 获取组件实例，并且让 n2.component 也指向组件实例
+    const instance = (n2.component = n1.component)
+
+    const { props } = instance
+    if (hasPropsChanged(n1.props, n2.props)) {
+      const [ nextProps ]= resolveProps(n2.type.props, n2.props)
+      // 更新 props
+      for (const k in nextProps) {
+        props[k] = nextProps[k]
+      }
+      // 删除不存在的 props
+      for (const k in props) {
+        if (!(k in nextProps)) delete props[k]
+      }
+    }
+  }
+
   function patchChildren(n1, n2, container) {
     if (isString(n2.children)) {
       // 如果 children 是 String 表示更新为文本节点
@@ -82,8 +261,8 @@ function createRenderer(options = {}) {
       if (isArray(n1.children)) {
         // EasyDiffV1(n1, n2, container)
         // EasyDiffV2(n1, n2, container)
-        // twoEndDiff(n1, n2, container)
-        quickDiff(n1, n2, container)
+        twoEndDiff(n1, n2, container)
+        // quickDiff(n1, n2, container)
       } else {
         // n1.children 是文本节点，则清空文本然后遍历 n2.children 进行挂载
         setElementText(container, '')
@@ -99,14 +278,6 @@ function createRenderer(options = {}) {
         // 在这里则表示 n1 和 n2 都无 children
       }
     }
-  }
-
-  // 挂载组件
-  function mountComponent(vnode, container) {
-    // 调用组件函数，获取组件要渲染的内容
-    const subtree = vnode.type.render()
-
-    render(subtree, container)
   }
 
   function unmount(vnode) {
@@ -166,6 +337,12 @@ function createRenderer(options = {}) {
         n2.children.forEach(child => patch(null, child, container))
       } else {
         patchChildren(n1, n2, container)
+      }
+    } else if (isObject(type)) {
+      if (!n1) {
+        mountComponent(n2, container, anchor)
+      } else {
+        patchComponent(n1, n2, anchor)
       }
     }
 

@@ -10,11 +10,20 @@
 <body>
   <div id="app"></div>
 
-  <script src="./src/renderer.js"></script>
-  <script src="./src/effect.js"></script>
-  <script src="./src//computed.js"></script>
-  <script src="./src//watch.js"></script>
-  <script src="./src/reactivity.js"></script>
+  <!-- 工具函数 -->
+  <script src="./src//utils/index.js"></script>
+
+  <!-- 渲染器 -->
+  <script src="./src/renderer/renderer.js"></script>
+
+  <!-- 响应式系统 -->
+  <script src="./src/reactivity/effect.js"></script>
+  <script src="./src/reactivity/reactivity.js"></script>
+  <script src="./src/reactivity/api/computed.js"></script>
+  <script src="./src/reactivity/api/watch.js"></script>
+  <script src="./src/reactivity/api/reactive.js"></script>
+  <script src="./src/reactivity/api/readonly.js"></script>
+  <script src="./src/reactivity/api/ref.js"></script>
   <script>
     const obj = reactive({
       count: 1,
@@ -39,10 +48,7 @@
     //   () => {
     //     console.log(obj.count)
     //   }, {
-    //     scheduler(fn) {
-    //       jobQueue.add(fn)
-    //       flushJobs()
-    //     }
+    //     scheduler: flushJobs
     //   }
     // )
     // obj.count++
