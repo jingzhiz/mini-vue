@@ -68,10 +68,9 @@ function createRenderer(options = {}) {
     patchChildren(n1, n2, el)
   }
 
-  function resolveProps(options, propsData) {
+  function resolveProps(options = {}, propsData = {}) {
     const props = {}
     const attrs = {}
-
     // 遍历为组件传递的 props 属性
     for (const key in propsData) {
       // on 开头的都添加到 props 中
@@ -89,7 +88,18 @@ function createRenderer(options = {}) {
 
   // 挂载组件
   function mountComponent(vnode, container, anchor) {
-    const componentOptions = vnode.type
+    const isFunctional = isFunction(vnode.type)
+
+    let componentOptions = vnode.type
+
+    // 函数式组件的处理
+    if (isFunctional) {
+      componentOptions = {
+        render: vnode.type,
+        props: vnode.type.props
+      }
+    }
+
     // 获取组件的渲染函数
     let {
       props: propsOption,
@@ -137,20 +147,22 @@ function createRenderer(options = {}) {
       }
     }
 
-    const setupContext = { attrs, emit, slots }
-
-    setCurrentInstance(instance)
-    const setupResult = setup(shallowReactive(props), setupContext)
-    setCurrentInstance(null)
-
     let setupState = null
-    if (isFunction(setupResult)) {
-      if (render) {
-        console.warn('The return value of the setup function is the function, and the render function is ignored')
+    if (setup) {
+      const setupContext = { attrs, emit, slots }
+
+      setCurrentInstance(instance)
+      const setupResult = setup(shallowReactive(props), setupContext)
+      setCurrentInstance(null)
+
+      if (isFunction(setupResult)) {
+        if (render) {
+          console.warn('The return value of the setup function is the function, and the render function is ignored')
+        }
+        render = setupResult
+      } else {
+        setupState = setupResult
       }
-      render = setupResult
-    } else {
-      setupState = setupResult
     }
 
     vnode.component = instance
@@ -213,7 +225,7 @@ function createRenderer(options = {}) {
     })
   }
 
-  function hasPropsChanged(prevProps, nextProps) {
+  function hasPropsChanged(prevProps = {}, nextProps = {}) {
     const prevKeys = Object.keys(prevProps)
     const nextKeys = Object.keys(nextProps)
 
@@ -281,9 +293,13 @@ function createRenderer(options = {}) {
   }
 
   function unmount(vnode) {
+    console.log(vnode)
     // 如果是 Fragment 时，只需要卸载 children 即可
     if (vnode.type === Fragment) {
       vnode.children.forEach(child => unmount(child))
+      return
+    } else if (isObject(vnode.type)) {
+      unmount(vnode.component.subTree)
       return
     }
 
@@ -338,7 +354,7 @@ function createRenderer(options = {}) {
       } else {
         patchChildren(n1, n2, container)
       }
-    } else if (isObject(type)) {
+    } else if (isObject(type) || isFunction(type)) {
       if (!n1) {
         mountComponent(n2, container, anchor)
       } else {

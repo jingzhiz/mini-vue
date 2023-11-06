@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <!-- 工具函数 -->
+  <script src="./src//utils/index.js"></script>
+
+  <!-- 渲染器 -->
+  <script src="./src/renderer/renderer.js"></script>
+  <script src="./src/renderer/lifecircle.js"></script>
+  <script src="./src/renderer/defineAsyncComponent.js"></script>
+
+  <!-- 响应式系统 -->
+  <script src="./src/reactivity/effect.js"></script>
+  <script src="./src/reactivity/reactivity.js"></script>
+  <script src="./src/reactivity/api/computed.js"></script>
+  <script src="./src/reactivity/api/watch.js"></script>
+  <script src="./src/reactivity/api/reactive.js"></script>
+  <script src="./src/reactivity/api/readonly.js"></script>
+  <script src="./src/reactivity/api/ref.js"></script>
+
+  <script>
+    const MyComponent = {
+      name: 'MyComponent',
+      setup(props, context) {
+        const count = ref(0)
+        const handleAdd = () => {
+          count.value++
+        }
+
+        return () => {
+          return {
+            type: 'div',
+            key: 1,
+            children: [
+              {
+                type: 'h2',
+                key: '1-1',
+                children: `当前计数${count.value}`
+              },
+              {
+                type: 'button',
+                key: '1-2',
+                props: {
+                  onClick: handleAdd
+                },
+                children: '点击+1'
+              }
+            ]
+          }
+        }
+      }
+    }
+    const MyErrorComponent = {
+      setup(props) {
+        console.log(props.error)
+        return () => ({ type: 'h2', children: 'error' })
+      }
+    }
+    const MyLoadingComponent = {
+      setup() {
+        return () => ({ type: 'h2', children: 'loading' })
+      }
+    }
+    
+    let retrySwitch = false
+    const AsyncComponent = defineAsyncComponent({
+      loader: () => {
+        return new Promise((resolve, reject) => {
+          resolve(MyComponent)
+          // setTimeout(() => {
+          //   if (retrySwitch) {
+          //     resolve(MyComponent)
+          //   }
+          //   reject(MyComponent)
+          // }, 2000);
+        })
+      },
+      // timeout: 200,
+      // errorComponent: MyErrorComponent
+      // delay: 200,
+      // loadingComponent: MyLoadingComponent
+      // onError(retry, fail, retries) {
+      //   console.log('onError', retry, fail, retries)
+      //   if (retries < 2) {
+      //     retry()
+      //   } else {
+      //     retry()
+      //     retrySwitch = true
+      //   }
+      // }
+    })
+
+    const vnode = {
+      type: AsyncComponent,
+      key: 'c'
+    }
+    render(vnode, document.querySelector('#app'))
+  </script>
+</body>
+
+</html>

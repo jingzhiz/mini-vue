@@ -11,6 +11,19 @@ function ref(value) {
   return reactive(wrapper)
 }
 
+function shallowRef(value) {
+  const wrapper = {
+    value
+  }
+
+  // 添加一个不可枚举的标志属性
+  Object.defineProperty(wrapper, '__v_isRef', {
+    value: true
+  })
+
+  return shallowReactive(wrapper)
+}
+
 // 响应式丢失解决办法
 function toRef(reactiveObject, key) {
   const wrapper = {
