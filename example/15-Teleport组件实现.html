@@ -27,20 +27,20 @@
   <script src="./src/reactivity/api/readonly.js"></script>
   <script src="./src/reactivity/api/ref.js"></script>
 
+  <!-- 内置组件 -->
+  <script src="./src/components/KeepAlive.js"></script>
+  <script src="./src/components/Teleport.js"></script>
+
   <script>
-    function MyFuncComponent(props) {
-      return { type: 'h2', children: `${props.title} component` }
-    }
-
-    MyFuncComponent.props = {
-      title: String
-    }
-
     const vnode = {
-      type: MyFuncComponent,
+      type: Teleport,
       props: {
-        title: 'functional'
-      }
+        to: 'body'
+      },
+      children: [
+        { type: 'h1', children: 'Header' },
+        { type: 'p', children: 'content' }
+      ]
     }
 
     render(vnode, document.querySelector('#app'))

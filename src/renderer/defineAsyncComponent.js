@@ -69,7 +69,7 @@ function defineAsyncComponent(options) {
 
       onUnmounted(() => clearTimeout(timer))
 
-      const placeholder = { type: Comment, children: '<--! -->' }
+      const placeholder = { type: Comment, children: '' }
 
       // 加载成功后返回接收到的组件, 否则返回一个注释节点占位
       return () => {

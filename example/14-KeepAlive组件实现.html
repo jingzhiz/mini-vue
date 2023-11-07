@@ -27,23 +27,38 @@
   <script src="./src/reactivity/api/readonly.js"></script>
   <script src="./src/reactivity/api/ref.js"></script>
 
-  <script>
-    function MyFuncComponent(props) {
-      return { type: 'h2', children: `${props.title} component` }
-    }
+  <!-- 内置组件 -->
+  <script src="./src/components/KeepAlive.js"></script>
 
-    MyFuncComponent.props = {
-      title: String
+  <script>
+    const MyComponent = {
+      name: 'MyComponent',
+      setup() {
+        onMounted(() => {
+          console.log('onMounted')
+        })
+        return () => ({ type: 'div', children: 'hello' })
+      }
     }
 
     const vnode = {
-      type: MyFuncComponent,
-      props: {
-        title: 'functional'
+      type: KeepAlive,
+      slots: {
+        default: () => {
+          return { type: MyComponent }
+        }
       }
     }
 
     render(vnode, document.querySelector('#app'))
+
+    setTimeout(() => {
+      render(null, document.querySelector('#app'))
+    }, 1000)
+
+    setTimeout(() => {
+      render(vnode, document.querySelector('#app'))
+    }, 2000)
   </script>
 </body>
 

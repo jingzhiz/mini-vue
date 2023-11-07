@@ -39,7 +39,17 @@ function createRenderer(options = {}) {
       children.forEach(child => patch(null, child, el))
     }
 
+    // 如果需要执行动画就在元素插入前后执行回调
+    const needTransition = vnode.transition
+    if (needTransition) {
+      vnode.transition.beforeEnter(el)
+    }
+
     insert(el, container, anchor)
+
+    if (needTransition) {
+      vnode.transition.enter(el)
+    }
   }
 
   // 更新普通标签元素
@@ -120,7 +130,7 @@ function createRenderer(options = {}) {
     // 调用 data 函数获取原始数据，再通过 reactive 包装成响应式数据
     const state = data ? reactive(data()) : null
     const [props, attrs] = resolveProps(propsOption, vnode.props)
-    const slots = vnode.children || {}
+    const slots = vnode.slots || {}
 
     // 定义组件实例
     const instance = {
@@ -134,7 +144,19 @@ function createRenderer(options = {}) {
       beforeUpdate: [],
       updated: [],
       beforeUnmount: [],
-      unmounted: []
+      unmounted: [],
+      keepAliveCtx: null
+    }
+
+    // 检测当前需要挂载的组件是否是 KeepAlive 组件
+    const isKeepAlive = vnode.type.__isKeepAlive
+    if (isKeepAlive) {
+      instance.keepAliveCtx = {
+        move(vnode, container, anchor) {
+          insert(vnode.component.subTree.el, container, anchor)
+        },
+        createElement
+      }
     }
 
     function emit(event, ...payload) {
@@ -171,7 +193,7 @@ function createRenderer(options = {}) {
     const renderContext = new Proxy(instance, {
       get(t, k, r) {
         const { state, props } = t
-        if (key === '$slots') {
+        if (k === '$slots') {
           return slots
         } else if (state && k in state) {
           return state[k]
@@ -293,18 +315,32 @@ function createRenderer(options = {}) {
   }
 
   function unmount(vnode) {
-    console.log(vnode)
+    const needTransition = vnode.transition
+
     // 如果是 Fragment 时，只需要卸载 children 即可
     if (vnode.type === Fragment) {
       vnode.children.forEach(child => unmount(child))
       return
     } else if (isObject(vnode.type)) {
-      unmount(vnode.component.subTree)
+      if (vnode.shouldKeepAlive) {
+        // 需要 KeepAlive 的组件走自身的失活方法
+        vnode.keepAliveInstance._deActivate(vnode)
+      } else {
+        unmount(vnode.component.subTree)
+      }
       return
     }
 
     const parent = vnode.el.parentNode
-    if (parent) parent.removeChild(vnode.el)
+    if (parent) {
+      const performRemove = () => parent.removeChild(vnode.el)
+      if (needTransition) {
+        // 如果需要过渡处理，将 performRemove 作为参数传递给 leave
+        vnode.transition.leave(vnode.el, performRemove)
+      } else {
+        performRemove()
+      }
+    }
   }
 
   function patch(n1, n2, container, anchor) {
@@ -354,9 +390,24 @@ function createRenderer(options = {}) {
       } else {
         patchChildren(n1, n2, container)
       }
+    } else if (isObject(type) && type.__isTeleport) {
+      // 将方法注入 Teleport 组件，实现逻辑的抽离
+      type.process(n1, n2, container, anchor, {
+        patch,
+        patchChildren,
+        unmount,
+        move(vnode, container, anchor) {
+          insert(vnode.component ? vnode.component.subTree.el : vnode.el, container, anchor)
+        }
+      })
     } else if (isObject(type) || isFunction(type)) {
       if (!n1) {
-        mountComponent(n2, container, anchor)
+        if (n2.keepAlive) {
+          // 如果组件已经被 KeepAlive 缓存, 则应该激活该组件而不是重新挂载
+          n2.keepAliveInstance._activate(n2, container, anchor)
+        } else {
+          mountComponent(n2, container, anchor)
+        }
       } else {
         patchComponent(n1, n2, anchor)
       }
