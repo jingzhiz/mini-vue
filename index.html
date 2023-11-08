@@ -48,29 +48,12 @@
   <script src="./src/components/Teleport.js"></script>
   <script src="./src/components/Transition.js"></script>
 
+  <!-- 编译器 -->
+  <script src="./src/compiler/parser.js"></script>
+
   <script>
-    const App = {
-      name: 'App',
-      setup() {
-        const toggle = ref(true)
-
-        setTimeout(() => {
-          toggle.value = false
-        }, 2000);
-
-        return () => {
-          return {
-            type: Transition,
-            slots: {
-              default() {
-                return toggle.value ? { type: 'div', props: { class: 'box' } } : { type: Comment, children: '' }
-              }
-            }
-          }
-        }
-      }
-    }
-    render({ type: App }, document.querySelector('#app'))
+    const ast = compile('<div><p>Vue</p><p>React</p></div>')
+    transform(ast)
   </script>
 </body>
 
