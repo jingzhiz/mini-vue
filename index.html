@@ -50,10 +50,14 @@
 
   <!-- 编译器 -->
   <script src="./src/compiler/parser.js"></script>
+  <script src="./src/compiler/transform.js"></script>
+  <script src="./src/compiler/generate.js"></script>
+  <script src="./src/compiler/compile.js"></script>
 
   <script>
-    const ast = compile('<div><p>Vue</p><p>React</p></div>')
-    transform(ast)
+    const renderFnCode = compile('<div><p>Vue</p><p>React</p></div>')
+
+    console.log(renderFnCode)
   </script>
 </body>
 

@@ -9,7 +9,7 @@ const isFunction = (value) => getType(value) === 'Function'
 
 const shouldSetAsProps = (el, key, value) => {
   if (key === 'form' && el.tagName === 'INPUT') return false
-  
+
   return key in el
 }
 
@@ -63,4 +63,54 @@ function normalizeClass(value) {
     }
   }
   return res.trim()
+}
+
+function isAlpha(char) {
+  return /^[A-Za-z]$/.test(char)
+}
+
+// 工具函数，用于打印 AST 信息
+function dump(node, indent = 0) {
+  // 获取节点类型
+  const type = node.type
+  // 如果是根节点则不做任何描述，如果是标签打印标签名，否则打印文本内容
+  const desc = node.type === 'Root'
+    ? ''
+    : node.type === 'Element'
+      ? node.tag
+      : node.content
+
+  console.log(`${'-'.repeat(indent)}${type}: ${desc}`)
+
+  // 递归 children
+  if (node.children) {
+    node.children.forEach(n => dump(n, indent + 2))
+  }
+}
+
+// 工具函数，用户创建不同类型的节点
+function createStringLiteral(value) {
+  return {
+    type: 'StringLiteral',
+    value
+  }
+}
+function createIdentifier(name) {
+  return {
+    type: 'Identifier',
+    name
+  }
+}
+function createArrayExpression(elements) {
+  return {
+    type: 'ArrayExpression',
+    elements
+  }
+}
+function createCallExpression(callee, arguments) {
+  return {
+    type: 'CallExpression',
+    callee: createIdentifier(callee),
+    arguments
+  }
 }
