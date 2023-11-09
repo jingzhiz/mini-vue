@@ -115,5 +115,5 @@ function transform(ast) {
 
   traverseNode(ast, context)
 
-  dump(ast)
+  // dump(ast)
 }

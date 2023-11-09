@@ -49,15 +49,16 @@
   <script src="./src/components/Transition.js"></script>
 
   <!-- 编译器 -->
+  <script src="./src/compiler/parse.js"></script>
   <script src="./src/compiler/parser.js"></script>
   <script src="./src/compiler/transform.js"></script>
   <script src="./src/compiler/generate.js"></script>
   <script src="./src/compiler/compile.js"></script>
 
   <script>
-    const renderFnCode = compile('<div><p>Vue</p><p>React</p></div>')
-
-    console.log(renderFnCode)
+    const render = compile(`<div><p>Vue</p><p>React</p></div>`)
+    const vnode = render()
+    renderer.render(vnode, document.querySelector('#app'))
   </script>
 </body>
 

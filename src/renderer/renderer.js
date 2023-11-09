@@ -37,6 +37,8 @@ function createRenderer(options = {}) {
     } else if (isArray(children)) {
       // 如果是数组就遍历 children, 调用 patch 进行挂载
       children.forEach(child => patch(null, child, el))
+    } else if (isObject(children)) {
+      patch(null, children, el)
     }
 
     // 如果需要执行动画就在元素插入前后执行回调
@@ -447,7 +449,7 @@ function createRenderer(options = {}) {
         patch(null, newChildren[i], container)
       }
     } else if (newLen < oldLen) {
-      // 如果 newLen 《 oldLen 表示还要卸载元素
+      // 如果 newLen < oldLen 表示还要卸载元素
       for (let i = commonLen; i < oldLen; i++) {
         unmount(oldChildren[i])
       }
@@ -758,7 +760,7 @@ function createRenderer(options = {}) {
 }
 
 // 生成渲染函数，将浏览器环境的 API 传至生成渲染器函数中
-const { render } = createRenderer({
+const renderer = createRenderer({
   createElement(type) {
     return document.createElement(type)
   },
@@ -838,3 +840,22 @@ const { render } = createRenderer({
     }
   }
 })
+
+function h(type, props, children) {
+  const vnode = {
+    type,
+    props,
+    children
+  }
+  if (arguments.length === 2) {
+    vnode.props = null
+    if (isString(props)) {
+      vnode.children = props
+    } else if (isObject(props)) {
+      vnode.children = [props]
+    } else if (isArray) {
+      vnode.children = props
+    }
+  }
+  return vnode
+}
